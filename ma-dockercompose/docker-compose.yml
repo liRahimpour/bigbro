@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+
+  intervisuell-portal:
+    build: ../iv-portal
+    container_name: iv-portal
+    restart: always
+    ports:
+      - "8081:80"
+    networks:
+      - iv-network
+    depends_on:
+      - "intervisuell-postgres"
+      - "intervisuell-backend"
+      - "intervisuell-geoserver"
+
+  intervisuell-backend:
+      build: ../intervisuell
+      container_name: iv-backend
+      ports:
+        - "8083:8083"
+      networks:
+        - iv-network
+      depends_on:
+        - "intervisuell-geoserver"
+        - "intervisuell-postgres"
+
+  intervisuell-geoserver:
+      build: ../iv-geoserver
+      container_name: iv-geoserver
+      hostname: iv-geoserver
+      ports:
+       - 8084:8080
+      networks:
+       - iv-network
+      volumes:
+        - ${GEOSERVER_DATA_DIR}
+      environment:
+        - EXTRA_JAVA_OPTS=-Xms1g -Xmx2g
+        - USE_VECTOR_TILES=0
+        - USE_CORS=0
+        - GEOSERVER_ADMIN_USER=${GEOSERVER_ADMIN_USER}
+        - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD}
+      depends_on:
+        - "intervisuell-postgres"
+
+  intervisuell-postgres:
+    build: ../iv-dev-postgres
+    container_name: iv-postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - iv-network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ${DATAVOLUME}
+
+    restart: unless-stopped
+
+  intervisuell-pgadmin:
+    container_name: iv-pgadmin
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_ADMIN_USER}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_ADMIN_PASSWORD}
+    ports:
+      - "8082:80"
+    networks:
+       - iv-network
+    volumes:
+       - ./servers.json:/pgadmin4/servers.json # preconfigured servers/connections
+       - ./pgpass:/pgpass # passwords for the connections in this file
+    depends_on:
+       - "intervisuell-postgres"
+
+volumes:
+  postgres-data:
+
+networks:
+  iv-network:
+    external: true
